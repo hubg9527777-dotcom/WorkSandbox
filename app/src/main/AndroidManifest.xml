@@ -1,19 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-
-    <!-- 三星设备上 Work Profile 功能依赖的系统特性声明 -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <uses-feature
         android:name="android.software.managed_users"
         android:required="true" />
 
     <application
         android:allowBackup="false"
+        android:fullBackupContent="@xml/backup_rules"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:label="@string/app_name"
         android:theme="@style/Theme.WorkSandbox"
-        android:supportsRtl="true">
-
+        android:supportsRtl="true"
+        tools:targetApi="s">
         <activity
             android:name=".MainActivity"
             android:exported="true">
@@ -23,11 +24,7 @@
             </intent-filter>
         </activity>
 
-        <!--
-            官方标准组件：DeviceAdminReceiver
-            android:permission="android.permission.BIND_DEVICE_ADMIN" 是系统强制要求，
-            确保只有系统本身才能触发此组件，第三方应用无法伪造调用。
-        -->
+        <!-- 仅系统可向此组件发送 DeviceAdmin 与 Provisioning 回调。 -->
         <receiver
             android:name=".AdminReceiver"
             android:exported="true"
@@ -40,7 +37,5 @@
                 <action android:name="android.app.action.PROFILE_PROVISIONING_COMPLETE" />
             </intent-filter>
         </receiver>
-
     </application>
-
 </manifest>

@@ -3,13 +3,13 @@
     <string name="app_name">工作沙盒</string>
     <string name="button_create_profile">创建工作模式（工作资料）</string>
     <string name="button_open_settings">打开系统设置（查看/移除工作资料）</string>
-    <string name="status_no_profile">当前未创建工作资料</string>
-    <string name="status_profile_exists">工作资料已存在，可在工作资料内安装所需应用</string>
+    <string name="status_ready_to_provision">可通过系统引导创建工作资料</string>
+    <string name="status_provisioning_unavailable">当前设备状态不允许创建新的工作资料，请在系统设置中查看现有资料</string>
+    <string name="status_provisioning_finished">系统创建流程已结束，请在系统设置中确认工作资料状态</string>
     <string name="hint_text">说明：点击上方按钮后，将进入 Android 系统自带的工作资料创建向导（非本应用界面）。创建完成后，桌面会出现一个独立的工作身份，可在其中单独安装应用，与个人空间、三星安全文件夹互不影响、互相隔离。</string>
-    <string name="toast_profile_ready">工作资料创建完成</string>
-    <string name="toast_provisioning_started">正在创建工作资料，请按提示完成设置</string>
-    <string name="toast_provisioning_cancelled">已取消创建</string>
-    <string name="toast_already_provisioned">工作资料已存在，无需重复创建</string>
-    <string name="toast_provisioning_unsupported">当前设备不支持此功能</string>
+    <string name="toast_profile_ready">工作资料已创建并启用</string>
+    <string name="toast_provisioning_complete">系统工作资料创建流程已完成</string>
+    <string name="toast_provisioning_not_completed">系统创建流程未完成、被取消或当前设备不允许创建</string>
+    <string name="toast_provisioning_unavailable">当前设备状态不支持创建新的工作资料</string>
     <string name="toast_settings_unavailable">无法打开系统设置</string>
 </resources>

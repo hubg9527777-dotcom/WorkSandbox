@@ -1,55 +1,107 @@
 name: Release
 
-# 约束 5（ref 必须匹配）：必须由 tag push 触发，不要用 workflow_dispatch 或 release 事件
 on:
   push:
     tags:
       - 'v*'
 
+# contents: write 用于创建 GitHub Release；其余权限仅用于生成并查询构件证明。
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
 jobs:
-  build:
+  build-release:
+    name: Build, attest and publish release APK
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write       # 用于 Attestation 签名（OIDC token）
-      contents: write        # 用于创建 Release
-      attestations: write    # 用于生成 Attestation
+    env:
+      ASSET_NAME: WorkSandbox-${{ github.ref_name }}.apk
+      RELEASE_APK: app/build/outputs/apk/release/app-release.apk
 
     steps:
-      - name: Checkout
+      - name: Checkout tagged source
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
+          distribution: temurin
           java-version: '17'
-          distribution: 'temurin'
 
-      # 采用 GitHub 官方推荐的 Gradle 配置 Action，支持自动缓存加速，并提供二进制文件校验（确保安全）
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+      # 私钥只从 GitHub Actions Secrets 读取，绝不写入仓库或 Release 资产。
+      - name: Restore release signing key
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          test -n "$ANDROID_KEYSTORE_BASE64"
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/worksandbox-release.jks"
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
+      - name: Create temporary signing properties
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          test -n "$ANDROID_KEYSTORE_PASSWORD"
+          test -n "$ANDROID_KEY_ALIAS"
+          test -n "$ANDROID_KEY_PASSWORD"
+          cat > release.properties <<EOF_PROPERTIES
+          storeFile=$RUNNER_TEMP/worksandbox-release.jks
+          storePassword=$ANDROID_KEYSTORE_PASSWORD
+          keyAlias=$ANDROID_KEY_ALIAS
+          keyPassword=$ANDROID_KEY_PASSWORD
+          EOF_PROPERTIES
 
-      - name: Build Debug APK
-        run: ./gradlew assembleDebug --no-daemon
+      - name: Build and lint signed release APK
+        run: |
+          chmod +x ./gradlew
+          ./gradlew --no-daemon clean lintRelease assembleRelease
 
-      # 把最终产物整理到统一目录，并加上版本号，方便 Release 页面识别
-      - name: Prepare release asset
+      - name: Verify release APK security properties
+        run: |
+          test -f "$RELEASE_APK"
+          BUILD_TOOLS_DIR="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          test -x "$BUILD_TOOLS_DIR/apksigner"
+          test -x "$BUILD_TOOLS_DIR/aapt"
+          "$BUILD_TOOLS_DIR/apksigner" verify --verbose --print-certs "$RELEASE_APK"
+          if "$BUILD_TOOLS_DIR/aapt" dump badging "$RELEASE_APK" | grep -q 'application-debuggable'; then
+            echo 'Release APK must not be debuggable.' >&2
+            exit 1
+          fi
+
+      # 后续的证明与 Release 上传均只引用这一份不可再打包或改名的最终 APK。
+      - name: Prepare final release asset
         run: |
           mkdir -p dist
-          cp app/build/outputs/apk/debug/app-debug.apk "dist/WorkSandbox-${GITHUB_REF_NAME}.apk"
+          cp "$RELEASE_APK" "dist/$ASSET_NAME"
+          test -s "dist/$ASSET_NAME"
 
-      # 约束 1：subject-path 必须指向最终发布的产物文件（而非源码目录或中间产物）
-      - name: Attest Build Provenance
-        uses: actions/attest-build-provenance@v2
+      - name: Generate SLSA build provenance for final release asset
+        uses: actions/attest@v4
         with:
-          subject-path: 'dist/*.apk'
+          subject-path: dist/${{ env.ASSET_NAME }}
 
-      # 约束 2 + 3：使用默认 GITHUB_TOKEN（而非个人 PAT），由 action 上传（而非人工拖拽），
-      # 确保 Release 的 uploader 是 github-actions[bot]
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: dist/*.apk
-          generate_release_notes: true
+      # 先在 API 中验证同一最终文件的证明；失败则阻止创建没有证明的 Release。
+      - name: Verify final asset attestation
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for attempt in {1..12}; do
+            if gh attestation verify "dist/$ASSET_NAME" --repo "$GITHUB_REPOSITORY"; then
+              exit 0
+            fi
+            echo "Attestation not queryable yet; retrying in 10 seconds..." >&2
+            sleep 10
+          done
+          exit 1
+
+      - name: Create GitHub Release with attested asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" "dist/$ASSET_NAME" \
+            --title "WorkSandbox $GITHUB_REF_NAME" \
+            --generate-notes

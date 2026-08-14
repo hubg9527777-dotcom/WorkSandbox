@@ -12,3 +12,8 @@
 *.dex
 /app/build
 /app/release
+
+# 正式发布密钥与口令：绝不提交。
+/release.properties
+*.jks
+*.keystore

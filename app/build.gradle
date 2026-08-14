@@ -2,6 +2,19 @@ plugins {
     id 'com.android.application'
 }
 
+// 仅从未纳入版本控制的 release.properties 读取本地签名信息。
+def releaseProperties = new java.util.Properties()
+def releasePropertiesFile = rootProject.file('release.properties')
+if (releasePropertiesFile.exists()) {
+    releasePropertiesFile.withInputStream { releaseProperties.load(it) }
+}
+def releaseSigningConfigured = releasePropertiesFile.exists() && [
+        'storeFile', 'storePassword', 'keyAlias', 'keyPassword'
+].every { key -> releaseProperties.getProperty(key)?.trim() }
+def releaseTaskRequested = gradle.startParameter.taskNames.any { taskName ->
+    taskName.toLowerCase(java.util.Locale.ROOT).contains('release')
+}
+
 android {
     namespace 'com.mysandbox.work'
     compileSdk 34
@@ -10,8 +23,19 @@ android {
         applicationId "com.mysandbox.work"
         minSdk 26
         targetSdk 34
-        versionCode 1
-        versionName "1.0"
+        versionCode 2
+        versionName "1.0.3"
+    }
+
+    signingConfigs {
+        release {
+            if (releaseSigningConfigured) {
+                storeFile rootProject.file(releaseProperties.getProperty('storeFile'))
+                storePassword releaseProperties.getProperty('storePassword')
+                keyAlias releaseProperties.getProperty('keyAlias')
+                keyPassword releaseProperties.getProperty('keyPassword')
+            }
+        }
     }
 
     buildTypes {
@@ -19,7 +43,14 @@ android {
             debuggable true
         }
         release {
-            minifyEnabled false
+            // 对外发布必须使用受控 release 签名，并且不允许调试。
+            if (releaseTaskRequested && !releaseSigningConfigured) {
+                throw new GradleException('Release signing is required. Create an ignored release.properties file from release.properties.example.')
+            }
+            signingConfig signingConfigs.release
+            debuggable false
+            minifyEnabled true
+            shrinkResources true
         }
     }
 
@@ -33,10 +64,6 @@ android {
     }
 }
 
-// 修复：androidx.activity 等库内部依赖 Kotlin 标准库，不同传递依赖路径
-// 引入了不一致的版本（kotlin-stdlib 1.8.22 与旧的独立 kotlin-stdlib-jdk8 1.6.21
-// 同时存在），二者含有同名类，导致打包阶段报 "Duplicate class" 错误。
-// 强制统一所有 Kotlin 标准库相关 artifact 的版本，消除冲突。
 configurations.all {
     resolutionStrategy {
         force 'org.jetbrains.kotlin:kotlin-stdlib:1.9.22'
@@ -46,7 +73,6 @@ configurations.all {
 }
 
 dependencies {
-    // 仅引入 Android 官方 Jetpack 基础库（非第三方工具/SDK），用于 Activity 与主题支持
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'androidx.activity:activity:1.8.2'
 }
