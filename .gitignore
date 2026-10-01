@@ -3,6 +3,9 @@
 /local.properties
 /.idea
 .DS_Store
+.env
+.env.*
+!.env.example
 /build
 /captures
 .externalNativeBuildOldGen

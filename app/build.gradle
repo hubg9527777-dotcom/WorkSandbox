@@ -2,15 +2,24 @@ plugins {
     id 'com.android.application'
 }
 
-// 仅从未纳入版本控制的 release.properties 读取本地签名信息。
+// 优先从环境变量读取签名信息；本地开发仍可使用被 Git 忽略的 release.properties。
 def releaseProperties = new java.util.Properties()
 def releasePropertiesFile = rootProject.file('release.properties')
 if (releasePropertiesFile.exists()) {
     releasePropertiesFile.withInputStream { releaseProperties.load(it) }
 }
-def releaseSigningConfigured = releasePropertiesFile.exists() && [
-        'storeFile', 'storePassword', 'keyAlias', 'keyPassword'
-].every { key -> releaseProperties.getProperty(key)?.trim() }
+def signingValue = { String environmentName, String propertyName ->
+    System.getenv(environmentName)?.trim() ?: releaseProperties.getProperty(propertyName)?.trim()
+}
+def releaseSigningValues = [
+        storeFile: signingValue('ANDROID_KEYSTORE_PATH', 'storeFile'),
+        storePassword: signingValue('ANDROID_KEYSTORE_PASSWORD', 'storePassword'),
+        keyAlias: signingValue('ANDROID_KEY_ALIAS', 'keyAlias'),
+        keyPassword: signingValue('ANDROID_KEY_PASSWORD', 'keyPassword')
+]
+def releaseSigningConfigured = releaseSigningValues.values().every { value ->
+    value != null && !value.isEmpty()
+}
 def releaseTaskRequested = gradle.startParameter.taskNames.any { taskName ->
     taskName.toLowerCase(java.util.Locale.ROOT).contains('release')
 }
@@ -30,10 +39,10 @@ android {
     signingConfigs {
         release {
             if (releaseSigningConfigured) {
-                storeFile rootProject.file(releaseProperties.getProperty('storeFile'))
-                storePassword releaseProperties.getProperty('storePassword')
-                keyAlias releaseProperties.getProperty('keyAlias')
-                keyPassword releaseProperties.getProperty('keyPassword')
+                storeFile rootProject.file(releaseSigningValues.storeFile)
+                storePassword releaseSigningValues.storePassword
+                keyAlias releaseSigningValues.keyAlias
+                keyPassword releaseSigningValues.keyPassword
             }
         }
     }

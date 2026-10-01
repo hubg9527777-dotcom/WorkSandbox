@@ -60,8 +60,9 @@ if [ ! -f "$KEYSTORE" ]; then
   read_secret 'Repeat key password: '; KEY_CONFIRM="$REPLY"
   [ "$KEY_PASSWORD" = "$KEY_CONFIRM" ] || fail "Key passwords do not match"
   umask 077
-  keytool -genkeypair -keystore "$KEYSTORE" -storetype JKS \
-    -storepass "$STORE_PASSWORD" -keypass "$KEY_PASSWORD" -alias "$KEY_ALIAS" \
+  ANDROID_KEYSTORE_PASSWORD="$STORE_PASSWORD" ANDROID_KEY_PASSWORD="$KEY_PASSWORD" \
+    keytool -genkeypair -keystore "$KEYSTORE" -storetype JKS \
+    -storepass:env ANDROID_KEYSTORE_PASSWORD -keypass:env ANDROID_KEY_PASSWORD -alias "$KEY_ALIAS" \
     -keyalg RSA -keysize 3072 -validity 10000 \
     -dname "CN=WorkSandbox, OU=Personal, O=WorkSandbox, C=CN" -noprompt
   chmod 600 "$KEYSTORE"
@@ -72,14 +73,10 @@ else
   read_secret 'Existing key password: '; KEY_PASSWORD="$REPLY"
 fi
 unset STORE_CONFIRM KEY_CONFIRM
-
-cat > release.properties <<EOF_PROPERTIES
-storeFile=$KEYSTORE
-storePassword=$STORE_PASSWORD
-keyAlias=$KEY_ALIAS
-keyPassword=$KEY_PASSWORD
-EOF_PROPERTIES
-chmod 600 release.properties
+export ANDROID_KEYSTORE_PATH="$KEYSTORE"
+export ANDROID_KEYSTORE_PASSWORD="$STORE_PASSWORD"
+export ANDROID_KEY_ALIAS="$KEY_ALIAS"
+export ANDROID_KEY_PASSWORD="$KEY_PASSWORD"
 
 printf '\n== 3/7: Build and verify signed Release APK ==\n'
 ./gradlew --no-daemon clean lintRelease assembleRelease
@@ -97,11 +94,12 @@ shasum -a 256 "$APK"
 
 printf '\n== 4/7: Configure GitHub Actions Secrets ==\n'
 KEYSTORE_BASE64="$(base64 < "$KEYSTORE" | tr -d '\n')"
-gh secret set ANDROID_KEYSTORE_BASE64 --repo "$REPO" --body "$KEYSTORE_BASE64"
-gh secret set ANDROID_KEYSTORE_PASSWORD --repo "$REPO" --body "$STORE_PASSWORD"
-gh secret set ANDROID_KEY_ALIAS --repo "$REPO" --body "$KEY_ALIAS"
-gh secret set ANDROID_KEY_PASSWORD --repo "$REPO" --body "$KEY_PASSWORD"
+printf '%s' "$KEYSTORE_BASE64" | gh secret set ANDROID_KEYSTORE_BASE64 --repo "$REPO"
+printf '%s' "$STORE_PASSWORD" | gh secret set ANDROID_KEYSTORE_PASSWORD --repo "$REPO"
+printf '%s' "$KEY_ALIAS" | gh secret set ANDROID_KEY_ALIAS --repo "$REPO"
+printf '%s' "$KEY_PASSWORD" | gh secret set ANDROID_KEY_PASSWORD --repo "$REPO"
 unset KEYSTORE_BASE64 STORE_PASSWORD KEY_PASSWORD
+unset ANDROID_KEYSTORE_PATH ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD
 gh secret list --repo "$REPO" | grep -E 'ANDROID_KEYSTORE_BASE64|ANDROID_KEYSTORE_PASSWORD|ANDROID_KEY_ALIAS|ANDROID_KEY_PASSWORD' || fail "Secret check failed"
 
 printf '\n== 5/7: Prepare commit and tag ==\n'
