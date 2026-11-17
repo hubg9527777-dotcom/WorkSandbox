@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Safe interactive publisher for WorkSandbox v1.0.3.
+set +x
 set -Eeuo pipefail
 
 VERSION="1.0.3"
@@ -42,6 +43,17 @@ printf '\n== 1/7: Check GitHub authentication ==\n'
 gh auth status || fail "Run first: gh auth login -h github.com -s repo,workflow"
 REPO="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"
 printf 'Target repository: %s\n' "$REPO"
+EXPECTED_REPO="hubg9527777-dotcom/WorkSandbox"
+[ "$REPO" = "$EXPECTED_REPO" ] || fail "Unexpected GitHub repository; refusing to upload signing secrets"
+case "$(git remote get-url --push origin)" in
+  https://github.com/hubg9527777-dotcom/WorkSandbox.git|https://github.com/hubg9527777-dotcom/WorkSandbox|git@github.com:hubg9527777-dotcom/WorkSandbox.git) ;;
+  *) fail "Unexpected push destination; check origin before publishing" ;;
+esac
+[ "$(git branch --show-current)" = "main" ] || fail "Publish only from main"
+printf 'Build, upload signing secrets to %s, and prepare %s? Type PREPARE-%s: ' "$REPO" "$TAG" "$TAG"
+IFS= read -r PREPARE_CONFIRM
+[ "$PREPARE_CONFIRM" = "PREPARE-$TAG" ] || fail "Canceled before signing secrets were read or uploaded"
+
 if [ "$(gh repo view --json isPrivate --jq .isPrivate)" = "true" ]; then
   printf 'WARNING: private repositories need GitHub Enterprise Cloud for artifact attestations.\n' >&2
 fi
@@ -98,7 +110,7 @@ printf '%s' "$KEYSTORE_BASE64" | gh secret set ANDROID_KEYSTORE_BASE64 --repo "$
 printf '%s' "$STORE_PASSWORD" | gh secret set ANDROID_KEYSTORE_PASSWORD --repo "$REPO"
 printf '%s' "$KEY_ALIAS" | gh secret set ANDROID_KEY_ALIAS --repo "$REPO"
 printf '%s' "$KEY_PASSWORD" | gh secret set ANDROID_KEY_PASSWORD --repo "$REPO"
-unset KEYSTORE_BASE64 STORE_PASSWORD KEY_PASSWORD
+unset KEYSTORE_BASE64 STORE_PASSWORD KEY_PASSWORD REPLY
 unset ANDROID_KEYSTORE_PATH ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD
 gh secret list --repo "$REPO" | grep -E 'ANDROID_KEYSTORE_BASE64|ANDROID_KEYSTORE_PASSWORD|ANDROID_KEY_ALIAS|ANDROID_KEY_PASSWORD' || fail "Secret check failed"
 

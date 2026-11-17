@@ -12,4 +12,23 @@
     <string name="toast_provisioning_not_completed">系统创建流程未完成、被取消或当前设备不允许创建</string>
     <string name="toast_provisioning_unavailable">当前设备状态不支持创建新的工作资料</string>
     <string name="toast_settings_unavailable">无法打开系统设置</string>
+    <string name="unknown_sources_title">允许工作资料安装未知应用</string>
+    <string name="unknown_sources_confirmation">开启后可在工作资料中安装 APK，存在恶意应用风险。仍需为文件管理器或浏览器单独授权，系统安装确认不会跳过。是否开启？</string>
+    <string name="allow">开启</string>
+    <string name="unknown_sources_personal">默认关闭。请打开带公文包图标的“工作沙盒”设置此开关，仅影响工作资料。</string>
+    <string name="unknown_sources_off">已关闭：禁止工作资料安装未知来源应用，不影响已安装应用。</string>
+    <string name="unknown_sources_on">本应用的限制已解除。请为工作资料中的文件管理器或浏览器授权，再打开 APK。厂商安全策略仍可能阻止安装。</string>
+    <string name="unknown_sources_restricted">本应用的限制已解除，但系统或其他管理员仍限制安装。请检查设备管理策略或三星自动拦截器；此开关无法解除这些限制。</string>
+    <string name="unknown_sources_failed">无法读取或更改安装策略，请确认正在工作资料内以资料管理者身份打开。</string>
+    <string name="source_settings">为安装来源授权（系统设置）</string>
+    <string name="source_settings_fallback">此手机未提供直接入口。请在工作资料的系统设置中查找“安装未知应用”，或打开 APK 后按系统提示授权。</string>
+    <string name="update_check">检查更新</string>
+    <string name="update_checking">正在检查…</string>
+    <string name="update_current">当前已是最新版本，无需更新</string>
+    <string name="update_available">发现新版本</string>
+    <string name="update_download">下载新版 APK</string>
+    <string name="update_details">当前版本：%1$s\n最新版本：%2$s\n\n%3$s\n\n将在浏览器下载官方 APK，随后请打开文件并选择“更新”，不要卸载旧版或删除工作资料。</string>
+    <string name="update_install_hint">下载后打开 APK 选择更新，保留原应用和工作资料。如工作资料禁止安装，请在个人空间更新工作沙盒。</string>
+    <string name="update_browser_missing">无法打开浏览器，请到官方 GitHub 发布页下载更新。</string>
+    <string name="update_failed">暂时无法检查更新。请检查网络后重试；也可能是 GitHub 限流或发布尚未完成。</string>
 </resources>

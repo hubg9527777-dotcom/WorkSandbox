@@ -21,7 +21,7 @@ jobs:
 
     # 显式配置 JDK 17 环境，确保手动构建成功
     - name: Set up JDK 17
-      uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
+      uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6
       with:
         java-version: '17'
         distribution: 'temurin'
@@ -32,10 +32,16 @@ jobs:
 
     # 初始化 CodeQL，移除调试标志以优化构建性能
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@c4dd10e44af883a891fe31ced449bcb4a6728b9b # v3.37.6
+      uses: github/codeql-action/init@5895b2c9be147bc7f1c75ce72c5cb577febb1907 # v4
       with:
         languages: java-kotlin
         build-mode: manual      # 👈 核心：这个千万保留！这是维持安全面板绿色的关键
+
+    - name: Test update policy
+      run: bash scripts/test-update-policy.sh
+
+    - name: Install pinned Android Build Tools
+      run: sdkmanager "build-tools;36.0.0"
 
     # 执行手动编译，确保依赖树被完整、可重复地解析
     - name: Build
@@ -44,4 +50,4 @@ jobs:
         ./gradlew assembleDebug --no-daemon
 
     - name: Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@c4dd10e44af883a891fe31ced449bcb4a6728b9b # v3.37.6
+      uses: github/codeql-action/analyze@5895b2c9be147bc7f1c75ce72c5cb577febb1907 # v4

@@ -5,6 +5,11 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Build;
+import android.os.UserManager;
+import android.view.View;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.widget.SwitchCompat;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -26,6 +31,11 @@ public class MainActivity extends AppCompatActivity {
     private ComponentName adminComponent;
     private TextView statusText;
     private boolean provisioningFlowFinished;
+    private SwitchCompat unknownSourcesSwitch;
+    private TextView unknownSourcesText;
+    private Button sourceSettingsButton;
+    private boolean refreshingUnknownSources;
+    private UpdateChecker updateChecker;
 
     private final ActivityResultLauncher<Intent> provisioningLauncher =
             registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
@@ -49,6 +59,7 @@ public class MainActivity extends AppCompatActivity {
         dpm = (DevicePolicyManager) getSystemService(Context.DEVICE_POLICY_SERVICE);
         adminComponent = new ComponentName(this, AdminReceiver.class);
         statusText = findViewById(R.id.text_status);
+        updateChecker = new UpdateChecker(this, findViewById(R.id.button_check_update));
         provisioningFlowFinished = savedInstanceState != null
                 && savedInstanceState.getBoolean(STATE_PROVISIONING_FLOW_FINISHED, false);
 
@@ -58,6 +69,24 @@ public class MainActivity extends AppCompatActivity {
         Button manageButton = findViewById(R.id.button_open_settings);
         manageButton.setOnClickListener(v -> openWorkProfileSettings());
 
+        unknownSourcesSwitch = findViewById(R.id.switch_unknown_sources);
+        unknownSourcesText = findViewById(R.id.text_unknown_sources);
+        sourceSettingsButton = findViewById(R.id.button_source_settings);
+        sourceSettingsButton.setOnClickListener(v -> openSourceSettings());
+        unknownSourcesSwitch.setOnCheckedChangeListener((button, checked) -> {
+            if (refreshingUnknownSources) return;
+            refreshUnknownSources();
+            if (checked) {
+                new AlertDialog.Builder(this)
+                        .setTitle(R.string.unknown_sources_title)
+                        .setMessage(R.string.unknown_sources_confirmation)
+                        .setPositiveButton(R.string.allow, (dialog, which) -> setUnknownSourcesAllowed(true))
+                        .setNegativeButton(android.R.string.cancel, null).show();
+            } else {
+                setUnknownSourcesAllowed(false);
+            }
+        });
+        refreshUnknownSources();
         if (provisioningFlowFinished) {
             statusText.setText(getString(R.string.status_provisioning_finished));
         } else {
@@ -68,8 +97,78 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        refreshUnknownSources();
         if (!provisioningFlowFinished) {
             updateAvailabilityStatus();
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (updateChecker != null) updateChecker.close();
+        super.onDestroy();
+    }
+
+    private boolean isProfileOwner() {
+        return dpm != null && dpm.isProfileOwnerApp(getPackageName());
+    }
+
+    private void refreshUnknownSources() {
+        if (unknownSourcesSwitch == null) return;
+        refreshingUnknownSources = true;
+        try {
+            boolean owner = isProfileOwner();
+            unknownSourcesSwitch.setEnabled(owner);
+            sourceSettingsButton.setVisibility(owner ? View.VISIBLE : View.GONE);
+            if (!owner) {
+                unknownSourcesSwitch.setChecked(false);
+                unknownSourcesText.setText(R.string.unknown_sources_personal);
+                return;
+            }
+            // Show this owner's policy separately from restrictions enforced elsewhere.
+            boolean blocked = dpm.getUserRestrictions(adminComponent)
+                    .getBoolean(UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES);
+            unknownSourcesSwitch.setChecked(!blocked);
+            UserManager users = (UserManager) getSystemService(Context.USER_SERVICE);
+            boolean externallyBlocked = users == null
+                    || users.hasUserRestriction(UserManager.DISALLOW_INSTALL_APPS)
+                    || users.hasUserRestriction(UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES)
+                    || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+                    && users.hasUserRestriction(UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES_GLOBALLY));
+            unknownSourcesText.setText(blocked ? R.string.unknown_sources_off
+                    : externallyBlocked ? R.string.unknown_sources_restricted : R.string.unknown_sources_on);
+            sourceSettingsButton.setEnabled(!blocked);
+        } catch (SecurityException | IllegalArgumentException e) {
+            unknownSourcesSwitch.setChecked(false);
+            unknownSourcesSwitch.setEnabled(false);
+            sourceSettingsButton.setVisibility(View.GONE);
+            unknownSourcesText.setText(R.string.unknown_sources_failed);
+        } finally {
+            refreshingUnknownSources = false;
+        }
+    }
+
+    private void setUnknownSourcesAllowed(boolean allowed) {
+        try {
+            if (!isProfileOwner()) return;
+            if (allowed) {
+                dpm.clearUserRestriction(adminComponent, UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES);
+            } else {
+                dpm.addUserRestriction(adminComponent, UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES);
+            }
+        } catch (SecurityException | IllegalArgumentException e) {
+            Toast.makeText(this, R.string.unknown_sources_failed, Toast.LENGTH_LONG).show();
+        }
+        refreshUnknownSources();
+    }
+
+    private void openSourceSettings() {
+        try {
+            if (!isProfileOwner()) return;
+            startActivity(new Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES));
+        } catch (android.content.ActivityNotFoundException | SecurityException e) {
+            Toast.makeText(this, R.string.source_settings_fallback, Toast.LENGTH_LONG).show();
+            openWorkProfileSettings();
         }
     }
 
@@ -121,7 +220,7 @@ public class MainActivity extends AppCompatActivity {
         Intent intent = new Intent(android.provider.Settings.ACTION_SETTINGS);
         try {
             startActivity(intent);
-        } catch (android.content.ActivityNotFoundException e) {
+        } catch (android.content.ActivityNotFoundException | SecurityException e) {
             Toast.makeText(this, getString(R.string.toast_settings_unavailable),
                     Toast.LENGTH_SHORT).show();
         }

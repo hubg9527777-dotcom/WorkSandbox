@@ -6,11 +6,12 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.util.Log;
+import android.os.UserManager;
 import android.widget.Toast;
 
 /**
  * 工作资料的 Profile Owner 组件。
- * 不施加密码、应用、网络、日志或跨资料策略；仅在系统完成创建后启用工作资料。
+ * 在创建时默认禁止未知来源安装，并启用工作资料。
  */
 public class AdminReceiver extends DeviceAdminReceiver {
 
@@ -29,6 +30,7 @@ public class AdminReceiver extends DeviceAdminReceiver {
         }
 
         try {
+            dpm.addUserRestriction(admin, UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES);
             dpm.setProfileEnabled(admin);
             Toast.makeText(context, context.getString(R.string.toast_profile_ready),
                     Toast.LENGTH_LONG).show();

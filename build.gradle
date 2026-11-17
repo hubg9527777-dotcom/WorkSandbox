@@ -1,3 +1,23 @@
+// Keep the AGP tooling classpath on reviewed security fixes, separate from APK dependencies.
+buildscript {
+    configurations.classpath {
+        resolutionStrategy.eachDependency { details ->
+            def versions = [
+                'com.google.guava:guava': '33.7.2-jre',
+                'com.google.protobuf:protobuf-java': '3.25.8',
+                'commons-io:commons-io': '2.22.0',
+                'org.apache.commons:commons-compress': '1.28.0',
+                'org.bitbucket.b_c:jose4j': '0.9.6',
+                'org.jdom:jdom2': '2.0.6.1'
+            ]
+            def fixed = versions["${details.requested.group}:${details.requested.name}".toString()]
+            if (details.requested.group == 'io.netty') fixed = '4.1.137.Final'
+            if (details.requested.group == 'org.bouncycastle') fixed = '1.85'
+            if (fixed != null) details.useVersion(fixed)
+        }
+    }
+}
+
 plugins {
-    id 'com.android.application' version '8.4.2' apply false
+    id 'com.android.application' version '8.13.2' apply false
 }

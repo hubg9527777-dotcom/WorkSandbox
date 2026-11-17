@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="true">
+<LinearLayout
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
+    android:layout_height="wrap_content"
     android:orientation="vertical"
     android:gravity="center"
     android:padding="32dp">
@@ -35,6 +37,20 @@
         android:layout_height="wrap_content"
         android:text="@string/button_open_settings" />
 
+    <androidx.appcompat.widget.SwitchCompat
+        android:id="@+id/switch_unknown_sources"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:minHeight="48dp" android:layout_marginTop="20dp"
+        android:text="@string/unknown_sources_title" android:checked="false" android:enabled="false" />
+    <TextView android:id="@+id/text_unknown_sources"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="@string/unknown_sources_personal" />
+    <Button android:id="@+id/button_source_settings"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="@string/source_settings" android:visibility="gone" />
+    <Button android:id="@+id/button_check_update"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="16dp" android:text="@string/update_check" />
     <TextView
         android:id="@+id/text_hint"
         android:layout_width="match_parent"
@@ -44,3 +60,5 @@
         android:layout_marginTop="32dp" />
 
 </LinearLayout>
+
+</ScrollView>
