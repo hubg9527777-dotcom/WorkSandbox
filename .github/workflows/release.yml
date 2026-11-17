@@ -39,7 +39,7 @@ jobs:
         run: bash scripts/test-update-policy.sh
 
       - name: Install pinned Android Build Tools
-        run: sdkmanager "build-tools;36.0.0"
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "build-tools;36.0.0"'
 
       # 私钥只从 GitHub Actions Secrets 读取，绝不写入仓库或 Release 资产。
       - name: Build and lint signed release APK

@@ -41,7 +41,7 @@ jobs:
       run: bash scripts/test-update-policy.sh
 
     - name: Install pinned Android Build Tools
-      run: sdkmanager "build-tools;36.0.0"
+      run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "build-tools;36.0.0"'
 
     # 执行手动编译，确保依赖树被完整、可重复地解析
     - name: Build
